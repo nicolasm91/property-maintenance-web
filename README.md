@@ -10,6 +10,8 @@ cp .env.example .env   # then fill in the Auth0 values
 pnpm dev               # http://localhost:5173
 ```
 
+With Docker, the API repo's `docker compose up --build` runs this app and the API together (see its README).
+
 ### Auth0
 
 Besides the API registered for the backend (its identifier is `VITE_AUTH0_AUDIENCE`), the tenant needs:
