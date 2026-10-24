@@ -1,8 +1,8 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect, useState } from 'react';
 import { ApiError, useApi } from './api.ts';
+import Dashboard from './Dashboard.tsx';
 import Onboarding from './Onboarding.tsx';
-import Profile from './Profile.tsx';
 import type { OnboardRequest, User } from './user.ts';
 
 type State =
@@ -42,7 +42,7 @@ export default function Home() {
     case 'onboarding':
       return <Onboarding onSubmit={onboard} />;
     case 'ready':
-      return <Profile user={state.user} />;
+      return <Dashboard user={state.user} />;
     case 'error':
       return <p role="alert">No se pudo cargar tu perfil: {state.message}</p>;
   }

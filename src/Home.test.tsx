@@ -6,6 +6,8 @@ import type { User } from './user.ts';
 
 vi.mock('@auth0/auth0-react');
 vi.mock('./api.ts', async (importOriginal) => ({ ...(await importOriginal<object>()), useApi: vi.fn() }));
+// The dashboard loads its own data; Profile is enough to see which User is shown.
+vi.mock('./Dashboard.tsx', async () => ({ default: (await import('./Profile.tsx')).default }));
 
 const user: User = {
   id: 'u1',
@@ -13,7 +15,9 @@ const user: User = {
   name: 'Ana',
   middleName: null,
   lastName: 'García',
-  role: 'directClient',
+  role: 'tradesman',
+  trades: ['plumber'],
+  contractorId: null,
 };
 
 describe('Home', () => {
@@ -39,13 +43,14 @@ describe('Home', () => {
     api.mockRejectedValueOnce(new ApiError(404, 'Onboarding not completed')).mockResolvedValueOnce(user);
 
     render(<Home />);
-    fireEvent.click(await screen.findByLabelText('Particular'));
+    fireEvent.click(await screen.findByLabelText('Profesional de oficio'));
     fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'García' } });
+    fireEvent.click(screen.getByLabelText('Plomero'));
     fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
 
     expect(await screen.findByRole('heading', { name: 'Hola, Ana García' })).toBeInTheDocument();
-    expect(api).toHaveBeenLastCalledWith('POST', '/me', expect.objectContaining({ profileType: 'directClient' }));
+    expect(api).toHaveBeenLastCalledWith('POST', '/me', expect.objectContaining({ profileType: 'tradesman' }));
     expect(getAccessTokenSilently).toHaveBeenCalledWith({ cacheMode: 'off' });
   });
 

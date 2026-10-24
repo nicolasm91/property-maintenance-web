@@ -1,4 +1,4 @@
-import { PROFILE_LABELS, TRADE_LABELS, type User } from './user.ts';
+import { formatAddress, PROFILE_LABELS, TRADE_LABELS, type User } from './user.ts';
 
 export default function Profile({ user }: { user: User }) {
   return (
@@ -13,6 +13,8 @@ export default function Profile({ user }: { user: User }) {
           Administración: {user.administration.name} ({user.administrationRole === 'admin' ? 'admin' : 'miembro'})
         </p>
       )}
+      {user.role === 'directClient' &&
+        user.homes.map((home) => <p key={home.id}>Casa: {formatAddress(home.address)}</p>)}
       {user.role === 'contractor' && <p>Empresa: {user.company.name}</p>}
       {user.role === 'tradesman' && <p>Oficios: {user.trades.map((trade) => TRADE_LABELS[trade]).join(', ')}</p>}
     </section>

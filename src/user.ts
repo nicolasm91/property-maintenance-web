@@ -7,6 +7,18 @@ export const TRADES = ['electrician', 'handyman', 'plumber', 'mason'] as const;
 
 export type Trade = (typeof TRADES)[number];
 
+export interface Address {
+  street: string;
+  number: string;
+  postalCode: string;
+  intersection: string;
+}
+
+export interface Home {
+  id: string;
+  address: Address;
+}
+
 export type User = {
   id: string;
   email: string;
@@ -19,7 +31,7 @@ export type User = {
       administration: { id: string; name: string };
       administrationRole: 'admin' | 'member';
     }
-  | { role: 'directClient' }
+  | { role: 'directClient'; homes: Home[] }
   | { role: 'contractor'; company: { id: string; name: string } }
   | { role: 'tradesman'; trades: Trade[]; contractorId: string | null }
 );
@@ -31,6 +43,7 @@ export interface OnboardRequest {
   lastName: string;
   administrationName?: string;
   companyName?: string;
+  home?: Address;
   trades?: Trade[];
 }
 
@@ -40,6 +53,9 @@ export const PROFILE_LABELS: Record<ProfileType, string> = {
   contractor: 'Contratista',
   tradesman: 'Profesional de oficio',
 };
+
+export const formatAddress = ({ street, number, intersection }: Address): string =>
+  `${street} ${number} (${intersection})`;
 
 export const TRADE_LABELS: Record<Trade, string> = {
   electrician: 'Electricista',

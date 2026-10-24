@@ -15,7 +15,7 @@ export function useApi() {
   const { getAccessTokenSilently } = useAuth0();
 
   return useCallback(
-    async <T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> => {
+    async <T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown): Promise<T> => {
       const token = await getAccessTokenSilently();
       const response = await fetch(`${config.apiUrl}${path}`, {
         method,

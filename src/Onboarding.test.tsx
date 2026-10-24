@@ -22,8 +22,29 @@ describe('Onboarding', () => {
       lastName: 'García',
       administrationName: 'Admin Ana',
       companyName: undefined,
+      home: undefined,
       trades: undefined,
     });
+  });
+
+  it('sends a direct client with their home', () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<Onboarding onSubmit={onSubmit} />);
+
+    fireEvent.click(screen.getByLabelText('Particular'));
+    fillName();
+    fireEvent.change(screen.getByLabelText('Calle'), { target: { value: 'Av. Corrientes' } });
+    fireEvent.change(screen.getByLabelText('Número'), { target: { value: '1234' } });
+    fireEvent.change(screen.getByLabelText('Código postal'), { target: { value: 'C1043' } });
+    fireEvent.change(screen.getByLabelText('Entre calles'), { target: { value: 'Talcahuano y Libertad' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profileType: 'directClient',
+        home: { street: 'Av. Corrientes', number: '1234', postalCode: 'C1043', intersection: 'Talcahuano y Libertad' },
+      }),
+    );
   });
 
   it('requires at least one trade for a tradesman', () => {

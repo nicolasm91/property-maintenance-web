@@ -43,6 +43,15 @@ export default function Onboarding({ onSubmit }: Props) {
         lastName: field('lastName'),
         administrationName: profileType === 'propertyManager' ? field('administrationName') : undefined,
         companyName: profileType === 'contractor' ? field('companyName') : undefined,
+        home:
+          profileType === 'directClient'
+            ? {
+                street: field('street'),
+                number: field('number'),
+                postalCode: field('postalCode'),
+                intersection: field('intersection'),
+              }
+            : undefined,
         trades: profileType === 'tradesman' ? trades : undefined,
       });
     } catch (submitError) {
@@ -95,6 +104,27 @@ export default function Onboarding({ onSubmit }: Props) {
           Nombre de la empresa
           <input name="companyName" required />
         </label>
+      )}
+      {profileType === 'directClient' && (
+        <fieldset>
+          <legend>Tu casa</legend>
+          <label>
+            Calle
+            <input name="street" required />
+          </label>
+          <label>
+            Número
+            <input name="number" required />
+          </label>
+          <label>
+            Código postal
+            <input name="postalCode" required />
+          </label>
+          <label>
+            Entre calles
+            <input name="intersection" required />
+          </label>
+        </fieldset>
       )}
       {profileType === 'tradesman' && (
         <fieldset>
