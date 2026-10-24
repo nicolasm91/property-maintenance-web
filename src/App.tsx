@@ -1,7 +1,8 @@
 import { useAuth0 } from '@auth0/auth0-react';
+import Home from './Home.tsx';
 
 export default function App() {
-  const { isLoading, isAuthenticated, user, error, loginWithRedirect, logout } = useAuth0();
+  const { isLoading, isAuthenticated, error, loginWithRedirect, logout } = useAuth0();
 
   if (isLoading) {
     return (
@@ -25,8 +26,7 @@ export default function App() {
 
   return (
     <main>
-      <h1>Hola, {user?.name}</h1>
-      <p>{user?.email}</p>
+      <Home />
       <button className="secondary" onClick={() => void logout({ logoutParams: { returnTo: window.location.origin } })}>
         Salir
       </button>
