@@ -34,6 +34,15 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Salir' })).toBeInTheDocument();
   });
 
+  it('sends a platform owner to the admin panel instead of onboarding', () => {
+    auth0({ isAuthenticated: true, user: { sub: 'auth0|owner' } });
+
+    render(<App />);
+
+    expect(screen.getByRole('link', { name: 'Ir al panel' })).toHaveAttribute('href', '/admin');
+    expect(screen.queryByText('home')).not.toBeInTheDocument();
+  });
+
   it('shows sign-in errors', () => {
     auth0({ error: new Error('access_denied') });
 
