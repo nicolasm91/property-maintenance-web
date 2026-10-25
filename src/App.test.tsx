@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import App from './App.tsx';
 
 vi.mock('@auth0/auth0-react');
+vi.mock('./Home.tsx', () => ({ default: () => <p>home</p> }));
 
 const auth0 = (state: Partial<ReturnType<typeof useAuth0>>) =>
   vi.mocked(useAuth0).mockReturnValue({
@@ -24,13 +25,22 @@ describe('App', () => {
     expect(loginWithRedirect).toHaveBeenCalledWith({ authorizationParams: { connection: 'google-oauth2' } });
   });
 
-  it('shows the signed-in user', () => {
-    auth0({ isAuthenticated: true, user: { name: 'Ana', email: 'ana@example.com' } });
+  it('shows the home page and logout once signed in', () => {
+    auth0({ isAuthenticated: true });
 
     render(<App />);
 
-    expect(screen.getByRole('heading', { name: 'Hola, Ana' })).toBeInTheDocument();
-    expect(screen.getByText('ana@example.com')).toBeInTheDocument();
+    expect(screen.getByText('home')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Salir' })).toBeInTheDocument();
+  });
+
+  it('sends a platform owner to the admin panel instead of onboarding', () => {
+    auth0({ isAuthenticated: true, user: { sub: 'auth0|owner' } });
+
+    render(<App />);
+
+    expect(screen.getByRole('link', { name: 'Ir al panel' })).toHaveAttribute('href', '/admin');
+    expect(screen.queryByText('home')).not.toBeInTheDocument();
   });
 
   it('shows sign-in errors', () => {
