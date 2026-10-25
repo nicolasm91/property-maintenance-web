@@ -1,7 +1,12 @@
 import { useAuth0 } from '@auth0/auth0-react';
+import { ShieldCheck } from 'lucide-react';
+import FullScreen from '../components/FullScreen.tsx';
+import { Alert, AlertDescription } from '../components/ui/alert.tsx';
+import { Button } from '../components/ui/button.tsx';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card.tsx';
+import { Skeleton } from '../components/ui/skeleton.tsx';
 import AdminUsers from './AdminUsers.tsx';
 import { isPasswordAccount, PASSWORD_CONNECTION } from './adminUser.ts';
-import './admin.css';
 
 export default function AdminApp() {
   const { isLoading, isAuthenticated, user, error, loginWithRedirect, logout } = useAuth0();
@@ -9,47 +14,55 @@ export default function AdminApp() {
 
   if (isLoading) {
     return (
-      <main className="admin-gate">
-        <p>Cargando…</p>
-      </main>
+      <FullScreen>
+        <Skeleton className="h-48 w-80 rounded-xl" />
+      </FullScreen>
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !isPasswordAccount(user?.sub)) {
     return (
-      <main className="admin-gate">
-        <div className="admin-card">
-          <span className="admin-badge">Superadmin</span>
-          <h1>Panel de administración</h1>
-          <p>Ingresá con tu usuario y contraseña de administración.</p>
-          {error && <p role="alert">No se pudo iniciar sesión: {error.message}</p>}
-          <button
-            onClick={() =>
-              void loginWithRedirect({
-                authorizationParams: { connection: PASSWORD_CONNECTION },
-                appState: { returnTo: '/admin' },
-              })
-            }
-          >
-            Ingresar con usuario y contraseña
-          </button>
-        </div>
-      </main>
-    );
-  }
-
-  if (!isPasswordAccount(user?.sub)) {
-    return (
-      <main className="admin-gate">
-        <div className="admin-card">
-          <h1>Panel de administración</h1>
-          <p role="alert">
-            Entraste con Google ({user?.email}). El panel solo acepta cuentas de administración con usuario y
-            contraseña.
-          </p>
-          <button onClick={signOut}>Salir</button>
-        </div>
-      </main>
+      <FullScreen>
+        <Card className="w-full max-w-sm text-left">
+          <CardHeader>
+            <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <ShieldCheck className="size-5" />
+            </div>
+            <CardTitle className="text-xl">Panel de administración</CardTitle>
+            <CardDescription>Ingresá con tu usuario y contraseña de administración.</CardDescription>
+          </CardHeader>
+          {(error || isAuthenticated) && (
+            <CardContent>
+              <Alert variant="destructive" role="alert">
+                <AlertDescription>
+                  {isAuthenticated
+                    ? `Entraste con Google (${user?.email}). El panel solo acepta cuentas de administración con usuario y contraseña.`
+                    : `No se pudo iniciar sesión: ${error?.message}`}
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          )}
+          <CardFooter>
+            {isAuthenticated ? (
+              <Button className="w-full" onClick={signOut}>
+                Salir
+              </Button>
+            ) : (
+              <Button
+                className="w-full"
+                onClick={() =>
+                  void loginWithRedirect({
+                    authorizationParams: { connection: PASSWORD_CONNECTION },
+                    appState: { returnTo: '/admin' },
+                  })
+                }
+              >
+                Ingresar con usuario y contraseña
+              </Button>
+            )}
+          </CardFooter>
+        </Card>
+      </FullScreen>
     );
   }
 

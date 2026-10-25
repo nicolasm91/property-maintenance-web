@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { toast } from 'sonner';
 import { useApi } from '../api.ts';
 import type { AdminUser } from './adminUser.ts';
 import AdminUsers from './AdminUsers.tsx';
 
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('../api.ts', async (importOriginal) => ({ ...(await importOriginal<object>()), useApi: vi.fn() }));
 
 const base = { middleName: null, organization: null, homes: 0, tasks: 0, createdAt: '2026-10-24T12:00:00.000Z' };
@@ -45,7 +47,7 @@ describe('AdminUsers', () => {
 
     expect(await screen.findByText('Ana García')).toBeInTheDocument();
     expect(rows()).toHaveLength(3);
-    expect(screen.getByText('Total').previousSibling).toHaveTextContent('3');
+    expect(screen.getByText('Total').closest('[data-slot=card]')).toHaveTextContent('3');
     expect(screen.getByText('Ruiz Administraciones')).toBeInTheDocument();
     expect(api).toHaveBeenCalledWith('GET', '/admin/users');
   });
@@ -71,14 +73,14 @@ describe('AdminUsers', () => {
     render(<AdminUsers email="owner@example.com" onSignOut={vi.fn()} />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Borrar a Ana García' }));
-    const dialog = screen.getByRole('dialog', { name: '¿Borrar a Ana García?' });
+    const dialog = await screen.findByRole('alertdialog', { name: '¿Borrar a Ana García?' });
     expect(dialog).toHaveTextContent('2 tareas');
     expect(dialog).toHaveTextContent('Su casa.');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Borrar usuario' }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Borraste a Ana García.');
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Borraste a Ana García.'));
     expect(api).toHaveBeenCalledWith('DELETE', '/admin/users/u1');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     expect(screen.queryByText('Ana García')).not.toBeInTheDocument();
   });
 
@@ -86,9 +88,9 @@ describe('AdminUsers', () => {
     render(<AdminUsers email="owner@example.com" onSignOut={vi.fn()} />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Borrar a Luis Pérez' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
 
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     expect(api).not.toHaveBeenCalledWith('DELETE', expect.anything());
     expect(screen.getByText('Luis Pérez')).toBeInTheDocument();
   });
@@ -100,9 +102,9 @@ describe('AdminUsers', () => {
     render(<AdminUsers email="owner@example.com" onSignOut={vi.fn()} />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Borrar a Luis Pérez' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Borrar usuario' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Borrar usuario' }));
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('User u2 not found'));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
 });

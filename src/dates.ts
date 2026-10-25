@@ -26,3 +26,16 @@ export const formatTime = (iso: string): string => time.format(new Date(iso));
 
 // en-CA formats dates as YYYY-MM-DD, the format the API's availability expects.
 export const todayInPlatform = (now: Date = new Date()): string => day.format(now);
+
+const longDay = new Intl.DateTimeFormat('es-AR', {
+  timeZone: TIME_ZONE,
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+
+export const formatLongDay = (date: Date | string): string => longDay.format(new Date(date));
+
+// Same day in the platform time zone.
+export const sameDay = (a: Date | string, b: Date | string): boolean =>
+  day.format(new Date(a)) === day.format(new Date(b));

@@ -25,6 +25,10 @@ Besides the API registered for the backend (its identifier is `VITE_AUTH0_AUDIEN
 
 [http://localhost:5173/admin](http://localhost:5173/admin) signs in with a username and password (never Google) and lists every User, with filters by profile type and a search. Deleting a User removes them with their tasks, homes, and, if they were its last member, their administration or Company, so the same Google account can sign up again.
 
+## UI
+
+Tailwind CSS v4 and [shadcn/ui](https://ui.shadcn.com) (Radix, "Nova" preset, with an indigo primary color). The components in `src/components/ui` and `src/hooks` come from the shadcn CLI (`pnpm dlx shadcn@latest add <component>`): edit them freely, but they are not linted. The app shell is a top bar and a collapsible sidebar (`src/layout`), with one page per section (`src/pages`).
+
 ## Scripts
 
 | Script              | Description                     |
