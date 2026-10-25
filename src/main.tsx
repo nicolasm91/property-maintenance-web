@@ -1,25 +1,18 @@
-import { Auth0Provider } from '@auth0/auth0-react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router';
 import App from './App.tsx';
-import { config } from './config.ts';
+import Auth0WithRouter from './Auth0WithRouter.tsx';
+import { Toaster } from './components/ui/sonner.tsx';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Auth0Provider
-      domain={config.auth0Domain}
-      clientId={config.auth0ClientId}
-      authorizationParams={{
-        redirect_uri: window.location.origin,
-        audience: config.auth0Audience,
-      }}
-      // Keeps the session across page reloads; the in-memory default would log
-      // the user out on every refresh.
-      cacheLocation="localstorage"
-      useRefreshTokens
-    >
-      <App />
-    </Auth0Provider>
+    <BrowserRouter>
+      <Auth0WithRouter>
+        <App />
+        <Toaster position="top-right" richColors />
+      </Auth0WithRouter>
+    </BrowserRouter>
   </StrictMode>,
 );

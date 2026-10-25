@@ -1,9 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { useApi } from './api.ts';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { toast } from 'sonner';
+import { useApi } from '../api.ts';
+import type { Task } from '../tasks.ts';
 import TaskCard from './TaskCard.tsx';
-import type { Task } from './tasks.ts';
 
-vi.mock('./api.ts', async (importOriginal) => ({ ...(await importOriginal<object>()), useApi: vi.fn() }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('../api.ts', async (importOriginal) => ({ ...(await importOriginal<object>()), useApi: vi.fn() }));
 
 const person = (id: string, name: string) => ({ id, name, middleName: null, lastName: 'García' });
 
@@ -45,14 +47,16 @@ describe('TaskCard', () => {
 
       await waitFor(() => expect(onChange).toHaveBeenCalled());
       expect(api).toHaveBeenCalledWith('POST', '/tasks/k1/complete');
+      expect(toast.success).toHaveBeenCalledWith('Marcaste la tarea como completada.');
     });
 
     it('rejects the task with an optional reason', async () => {
       render(<TaskCard task={task} role="tradesman" onChange={onChange} />);
 
       fireEvent.click(screen.getByRole('button', { name: 'Rechazar' }));
-      fireEvent.change(screen.getByLabelText('Motivo (opcional)'), { target: { value: ' Queda lejos ' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Confirmar rechazo' }));
+      const dialog = await screen.findByRole('dialog', { name: '¿Rechazar la tarea?' });
+      fireEvent.change(within(dialog).getByLabelText('Motivo (opcional)'), { target: { value: ' Queda lejos ' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar rechazo' }));
 
       await waitFor(() => expect(onChange).toHaveBeenCalled());
       expect(api).toHaveBeenCalledWith('POST', '/tasks/k1/reject', { reason: 'Queda lejos' });
@@ -62,7 +66,7 @@ describe('TaskCard', () => {
       render(<TaskCard task={task} role="tradesman" onChange={onChange} />);
 
       fireEvent.click(screen.getByRole('button', { name: 'Rechazar' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Confirmar rechazo' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Confirmar rechazo' }));
 
       await waitFor(() => expect(api).toHaveBeenCalledWith('POST', '/tasks/k1/reject', {}));
     });
@@ -82,8 +86,9 @@ describe('TaskCard', () => {
       expect(screen.getByText('Profesional: Luis García')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Completar' })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
-      fireEvent.change(screen.getByLabelText('Motivo'), { target: { value: 'Lo arreglé yo' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Confirmar cancelación' }));
+      const dialog = await screen.findByRole('dialog', { name: '¿Cancelar la tarea?' });
+      fireEvent.change(within(dialog).getByLabelText('Motivo'), { target: { value: 'Lo arreglé yo' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar cancelación' }));
 
       await waitFor(() => expect(onChange).toHaveBeenCalled());
       expect(api).toHaveBeenCalledWith('POST', '/tasks/k1/cancel', { reason: 'Lo arreglé yo' });
@@ -95,15 +100,16 @@ describe('TaskCard', () => {
       expect(screen.queryByRole('button', { name: 'Cancelar' })).not.toBeInTheDocument();
     });
 
-    it('shows the API error', async () => {
+    it('shows the API error in the dialog', async () => {
       api.mockRejectedValue(new Error('Task k1 is completed'));
       render(<TaskCard task={task} role="directClient" onChange={onChange} />);
 
       fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
-      fireEvent.change(screen.getByLabelText('Motivo'), { target: { value: 'Lo arreglé yo' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Confirmar cancelación' }));
+      const dialog = await screen.findByRole('dialog');
+      fireEvent.change(within(dialog).getByLabelText('Motivo'), { target: { value: 'Lo arreglé yo' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar cancelación' }));
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('Task k1 is completed');
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent('Task k1 is completed');
       expect(onChange).not.toHaveBeenCalled();
     });
   });

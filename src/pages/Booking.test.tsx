@@ -1,14 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { ApiError, useApi } from './api.ts';
+import { fireEvent, screen } from '@testing-library/react';
+import { toast } from 'sonner';
+import { ApiError, useApi } from '../api.ts';
+import { todayInPlatform } from '../dates.ts';
+import { directClient, renderPage } from '../test-utils.tsx';
 import Booking from './Booking.tsx';
-import { todayInPlatform } from './dates.ts';
-import type { Home } from './user.ts';
 
-vi.mock('./api.ts', async (importOriginal) => ({ ...(await importOriginal<object>()), useApi: vi.fn() }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('../api.ts', async (importOriginal) => ({ ...(await importOriginal<object>()), useApi: vi.fn() }));
 
-const homes: Home[] = [
-  { id: 'p1', address: { street: 'Av. Corrientes', number: '1234', postalCode: 'C1043', intersection: 'Talcahuano' } },
-];
 const tradesman = {
   id: 't1',
   name: 'Luis',
@@ -32,22 +31,21 @@ describe('Booking', () => {
     });
   });
 
-  const chooseSlot = async () => {
-    fireEvent.change(screen.getByLabelText('Oficio'), { target: { value: 'plumber' } });
-    fireEvent.change(await screen.findByLabelText('Profesional'), { target: { value: 't1' } });
-    fireEvent.click(await screen.findByLabelText('10:00'));
+  const book = async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Plomero' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Luis Pérez/ }));
+    fireEvent.click(await screen.findByRole('button', { name: '10:00' }));
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Pérdida en la canilla' } });
     fireEvent.change(screen.getByLabelText('Descripción'), { target: { value: 'Gotea la canilla de la cocina' } });
     fireEvent.click(screen.getByRole('button', { name: 'Reservar' }));
   };
 
-  it("books a free slot of a tradesman for the client's home", async () => {
-    const onBooked = vi.fn();
-    render(<Booking homes={homes} onBooked={onBooked} />);
+  it("books a free slot for the client's home and goes to their tasks", async () => {
+    renderPage(<Booking />, { user: directClient });
 
-    await chooseSlot();
+    await book();
 
-    expect(await screen.findByRole('status')).toHaveTextContent('reservaste el turno');
+    expect(await screen.findByText('navigated')).toBeInTheDocument();
     expect(api).toHaveBeenCalledWith('GET', '/tradesmen?trade=plumber');
     expect(api).toHaveBeenCalledWith('GET', `/tradesmen/t1/availability?date=${todayInPlatform()}`);
     expect(api).toHaveBeenCalledWith('POST', '/tasks', {
@@ -58,28 +56,27 @@ describe('Booking', () => {
       description: 'Gotea la canilla de la cocina',
       scheduledAt: slot,
     });
-    expect(onBooked).toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith('Reservaste el turno: Pérdida en la canilla.');
   });
 
-  it('explains when the slot was taken in the meantime', async () => {
-    const onBooked = vi.fn();
+  it('explains when the slot was taken in the meantime, and reloads the slots', async () => {
     api.mockImplementation((method: string, path: string) => {
       if (method === 'POST') return Promise.reject(new ApiError(409, 'The tradesman already has that slot taken'));
       return Promise.resolve(path.startsWith('/tradesmen?') ? [tradesman] : [slot]);
     });
-    render(<Booking homes={homes} onBooked={onBooked} />);
+    renderPage(<Booking />, { user: directClient });
 
-    await chooseSlot();
+    await book();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Ese turno ya no está disponible');
-    expect(onBooked).not.toHaveBeenCalled();
+    expect(api.mock.calls.filter(([, path]) => String(path).includes('/availability'))).toHaveLength(2);
   });
 
   it('says when nobody works in that trade', async () => {
     api.mockResolvedValue([]);
-    render(<Booking homes={homes} onBooked={vi.fn()} />);
+    renderPage(<Booking />, { user: directClient });
 
-    fireEvent.change(screen.getByLabelText('Oficio'), { target: { value: 'mason' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Albañil' }));
 
     expect(await screen.findByText('No hay profesionales disponibles para ese oficio.')).toBeInTheDocument();
   });
