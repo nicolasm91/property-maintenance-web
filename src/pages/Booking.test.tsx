@@ -15,6 +15,8 @@ const tradesman = {
   lastName: 'Pérez',
   trades: ['plumber'],
   contractorId: null,
+  ratingAverage: 4.5,
+  ratingCount: 12,
 };
 const slot = '2026-11-02T13:00:00.000Z';
 
@@ -25,7 +27,7 @@ describe('Booking', () => {
     vi.resetAllMocks();
     vi.mocked(useApi).mockReturnValue(api);
     api.mockImplementation((_method: string, path: string) => {
-      if (path.startsWith('/tradesmen?')) return Promise.resolve([tradesman]);
+      if (path.startsWith('/tradesmen?')) return Promise.resolve({ items: [tradesman], nextCursor: null });
       if (path.includes('/availability')) return Promise.resolve([slot]);
       return Promise.resolve({ id: 'k1', title: 'Pérdida en la canilla' });
     });
@@ -46,7 +48,7 @@ describe('Booking', () => {
     await book();
 
     expect(await screen.findByText('navigated')).toBeInTheDocument();
-    expect(api).toHaveBeenCalledWith('GET', '/tradesmen?trade=plumber');
+    expect(api).toHaveBeenCalledWith('GET', '/tradesmen?trade=plumber&municipalityId=022007');
     expect(api).toHaveBeenCalledWith('GET', `/tradesmen/t1/availability?date=${firstBookableDay()}`);
     expect(api).toHaveBeenCalledWith('POST', '/tasks', {
       tradesmanId: 't1',
@@ -62,7 +64,7 @@ describe('Booking', () => {
   it('explains when the slot was taken in the meantime, and reloads the slots', async () => {
     api.mockImplementation((method: string, path: string) => {
       if (method === 'POST') return Promise.reject(new ApiError(409, 'The tradesman already has that slot taken'));
-      return Promise.resolve(path.startsWith('/tradesmen?') ? [tradesman] : [slot]);
+      return Promise.resolve(path.startsWith('/tradesmen?') ? { items: [tradesman], nextCursor: null } : [slot]);
     });
     renderPage(<Booking />, { user: directClient });
 
@@ -87,12 +89,45 @@ describe('Booking', () => {
     );
   });
 
-  it('says when nobody works in that trade', async () => {
-    api.mockResolvedValue([]);
+  it('shows ratings and loads more tradesmen page by page', async () => {
+    const second = { ...tradesman, id: 't2', name: 'Juan', lastName: 'López', ratingAverage: null, ratingCount: 0 };
+    api.mockImplementation((_method: string, path: string) =>
+      Promise.resolve(
+        path.includes('cursor=')
+          ? { items: [second], nextCursor: null }
+          : { items: [tradesman], nextCursor: 'next page' },
+      ),
+    );
+    renderPage(<Booking />, { user: directClient });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Plomero' }));
+    expect(await screen.findByLabelText('4.5 de 5, 12 calificaciones')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver más profesionales' }));
+
+    expect(await screen.findByRole('button', { name: /Juan López/ })).toHaveTextContent('Nuevo');
+    expect(api).toHaveBeenCalledWith('GET', '/tradesmen?trade=plumber&municipalityId=022007&cursor=next%20page');
+    expect(screen.queryByRole('button', { name: 'Ver más profesionales' })).not.toBeInTheDocument();
+  });
+
+  it('says when nobody of that trade works in the locality', async () => {
+    api.mockResolvedValue({ items: [], nextCursor: null });
     renderPage(<Booking />, { user: directClient });
 
     fireEvent.click(screen.getByRole('button', { name: 'Albañil' }));
 
-    expect(await screen.findByText('No hay profesionales disponibles para ese oficio.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No hay profesionales de ese oficio que trabajen en tu localidad.'),
+    ).toBeInTheDocument();
+  });
+
+  it("can't search for a home without locality", () => {
+    renderPage(<Booking />, {
+      user: { ...directClient, homes: [{ ...directClient.homes[0], municipality: null }] },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Plomero' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Tu casa no tiene localidad cargada');
+    expect(api).not.toHaveBeenCalled();
   });
 });

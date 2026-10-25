@@ -4,7 +4,7 @@ import { Badge } from '../components/ui/badge.tsx';
 import { Card, CardContent, CardHeader } from '../components/ui/card.tsx';
 import { Separator } from '../components/ui/separator.tsx';
 import { useSession } from '../session.tsx';
-import { formatAddress, fullName, PROFILE_LABELS, TRADE_LABELS } from '../user.ts';
+import { formatAddress, formatMunicipality, fullName, PROFILE_LABELS, TRADE_LABELS } from '../user.ts';
 
 export default function Profile() {
   const { user } = useSession();
@@ -19,9 +19,28 @@ export default function Profile() {
   if (user.role === 'contractor') {
     rows.push(['Empresa', user.company?.name ?? 'Todavía no la creaste']);
   }
+  if (user.role === 'tradesman') {
+    rows.push([
+      'Zonas',
+      user.municipalities.length === 0
+        ? 'Ninguna todavía'
+        : user.municipalities.map((municipality) => formatMunicipality(municipality)).join(' · '),
+    ]);
+    rows.push([
+      'Calificación',
+      user.ratingCount > 0
+        ? `${user.ratingAverage!.toFixed(1)} de 5 (${user.ratingCount} ${user.ratingCount === 1 ? 'calificación' : 'calificaciones'})`
+        : 'Todavía no te calificaron',
+    ]);
+  }
   if (user.role === 'directClient') {
     user.homes.forEach((home, index) =>
-      rows.push([user.homes.length > 1 ? `Casa ${index + 1}` : 'Casa', formatAddress(home.address)]),
+      rows.push([
+        user.homes.length > 1 ? `Casa ${index + 1}` : 'Casa',
+        home.municipality
+          ? `${formatAddress(home.address)} · ${formatMunicipality(home.municipality)}`
+          : formatAddress(home.address),
+      ]),
     );
   }
 

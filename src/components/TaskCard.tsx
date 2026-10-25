@@ -6,6 +6,7 @@ import { formatDateTime } from '../dates.ts';
 import { EVENT_LABELS, fullName, type Task, type TaskEvent } from '../tasks.ts';
 import { formatAddress, TRADE_LABELS } from '../user.ts';
 import StatusBadge from './StatusBadge.tsx';
+import { StarsDisplay, StarsInput } from './Stars.tsx';
 import { Button } from './ui/button.tsx';
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card.tsx';
 import {
@@ -26,13 +27,14 @@ interface Props {
   onChange: () => void;
 }
 
-type Reasoned = 'reject' | 'cancel';
+type Asking = 'reject' | 'cancel' | 'rate';
 
 const message = (error: unknown) => (error instanceof Error ? error.message : 'Error inesperado');
 
 export default function TaskCard({ task, role, onChange }: Props) {
   const api = useApi();
-  const [asking, setAsking] = useState<Reasoned | null>(null);
+  const [asking, setAsking] = useState<Asking | null>(null);
+  const [rating, setRating] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<TaskEvent[] | null>(null);
@@ -50,6 +52,15 @@ export default function TaskCard({ task, role, onChange }: Props) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const submitRating = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (rating === 0) {
+      setError('Elegí cuántas estrellas le das.');
+      return;
+    }
+    void run(() => api('POST', `/tasks/${task.id}/complete`, { rating }), '¡Gracias! Confirmaste el trabajo.');
   };
 
   const submitReason = (event: FormEvent<HTMLFormElement>) => {
@@ -71,7 +82,8 @@ export default function TaskCard({ task, role, onChange }: Props) {
       .catch((loadError: unknown) => setError(message(loadError)));
   };
 
-  const canComplete = role === 'tradesman' && task.status === 'assigned';
+  const canMarkDone = role === 'tradesman' && task.status === 'assigned';
+  const canConfirm = role === 'directClient' && task.status === 'done';
   const canCancel = role === 'directClient' && (task.status === 'unassigned' || task.status === 'assigned');
   const counterpart = role === 'tradesman' ? task.createdBy : task.tradesman;
 
@@ -100,6 +112,19 @@ export default function TaskCard({ task, role, onChange }: Props) {
           </p>
         )}
         <p className="pt-1 text-muted-foreground">{task.description}</p>
+        {task.status === 'done' && (
+          <p className="rounded-lg bg-violet-50 px-3 py-2 text-violet-900 dark:bg-violet-500/10 dark:text-violet-200">
+            {role === 'tradesman'
+              ? 'Marcaste el trabajo como hecho. Falta que el cliente lo confirme.'
+              : 'El profesional marcó el trabajo como hecho. Confirmalo y calificalo.'}
+          </p>
+        )}
+        {task.rating !== null && (
+          <p className="flex items-center gap-2">
+            <span className="text-muted-foreground">{role === 'tradesman' ? 'Calificación' : 'Tu calificación'}:</span>
+            <StarsDisplay value={task.rating} />
+          </p>
+        )}
 
         {events && (
           <ol aria-label="Historial" className="mt-3 space-y-2 border-l pl-4">
@@ -111,6 +136,7 @@ export default function TaskCard({ task, role, onChange }: Props) {
                   {' '}
                   · {formatDateTime(event.occurredAt)} · {fullName(event.actor)}
                   {event.reason && ` · ${event.reason}`}
+                  {event.rating !== null && ` · ${event.rating} ${event.rating === 1 ? 'estrella' : 'estrellas'}`}
                 </span>
               </li>
             ))}
@@ -123,17 +149,20 @@ export default function TaskCard({ task, role, onChange }: Props) {
         )}
       </CardContent>
       <CardFooter className="flex-wrap gap-2">
-        {canComplete && (
+        {canMarkDone && (
           <Button
             disabled={busy}
-            onClick={() =>
-              void run(() => api('POST', `/tasks/${task.id}/complete`), 'Marcaste la tarea como completada.')
-            }
+            onClick={() => void run(() => api('POST', `/tasks/${task.id}/done`), 'Marcaste el trabajo como hecho.')}
           >
-            Completar
+            Marcar como hecha
           </Button>
         )}
-        {canComplete && (
+        {canConfirm && (
+          <Button disabled={busy} onClick={() => setAsking('rate')}>
+            Confirmar y calificar
+          </Button>
+        )}
+        {canMarkDone && (
           <Button variant="outline" disabled={busy} onClick={() => setAsking('reject')}>
             Rechazar
           </Button>
@@ -149,7 +178,36 @@ export default function TaskCard({ task, role, onChange }: Props) {
         </Button>
       </CardFooter>
 
-      <Dialog open={asking !== null} onOpenChange={(open) => !open && setAsking(null)}>
+      <Dialog open={asking === 'rate'} onOpenChange={(open) => !open && setAsking(null)}>
+        <DialogContent>
+          <form onSubmit={submitRating} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>¿Cómo trabajó {task.tradesman ? task.tradesman.name : 'el profesional'}?</DialogTitle>
+              <DialogDescription>
+                Confirmás que el trabajo está hecho. La calificación es obligatoria y no se puede cambiar después.
+              </DialogDescription>
+            </DialogHeader>
+            <StarsInput value={rating} onChange={setRating} />
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Volver
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={busy}>
+                Confirmar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={asking === 'reject' || asking === 'cancel'} onOpenChange={(open) => !open && setAsking(null)}>
         <DialogContent>
           <form onSubmit={submitReason} className="space-y-4">
             <DialogHeader>

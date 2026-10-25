@@ -2,7 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { ApiError, useApi } from './api.ts';
-import { directClient, newManager, tradesman } from './test-utils.tsx';
+import { catalogResponse, directClient, newManager, tradesman } from './test-utils.tsx';
 import UserApp from './UserApp.tsx';
 
 vi.mock('@auth0/auth0-react');
@@ -83,7 +83,7 @@ describe('UserApp', () => {
     auth0({ getAccessTokenSilently });
     api.mockImplementation((method: string, path: string) => {
       if (path === '/me' && method === 'GET') return Promise.reject(new ApiError(404, 'Onboarding not completed'));
-      return Promise.resolve(path === '/tasks' ? [] : tradesman);
+      return Promise.resolve(catalogResponse(path) ?? (path === '/tasks' ? [] : tradesman));
     });
 
     renderApp();
@@ -91,6 +91,9 @@ describe('UserApp', () => {
     fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'García' } });
     fireEvent.click(screen.getByLabelText('Plomero'));
+    await screen.findByRole('option', { name: 'Buenos Aires' });
+    fireEvent.change(screen.getByLabelText('Provincia'), { target: { value: '02' } });
+    fireEvent.click(await screen.findByLabelText('Comuna 1'));
     fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
 
     expect(await screen.findByRole('heading', { name: 'Hola, Ana' })).toBeInTheDocument();
