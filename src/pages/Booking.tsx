@@ -14,7 +14,7 @@ import { Input } from '../components/ui/input.tsx';
 import { NativeSelect, NativeSelectOption } from '../components/ui/native-select.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Textarea } from '../components/ui/textarea.tsx';
-import { formatTime, todayInPlatform } from '../dates.ts';
+import { addDays, firstBookableDay, formatDayChip, formatLongDay, formatTime, todayInPlatform } from '../dates.ts';
 import { useSession } from '../session.tsx';
 import { type BookRequest, fullName, type Task, type Tradesman } from '../tasks.ts';
 import { cn } from '@/lib/utils';
@@ -35,10 +35,14 @@ export default function Booking() {
   const api = useApi();
   const navigate = useNavigate();
   const today = todayInPlatform();
+  const [days] = useState(() => {
+    const first = firstBookableDay();
+    return Array.from({ length: 14 }, (_, index) => addDays(first, index));
+  });
   const [trade, setTrade] = useState<Trade | null>(null);
   const [tradesmen, setTradesmen] = useState<Tradesman[] | null>(null);
   const [tradesmanId, setTradesmanId] = useState('');
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(days[0]);
   const [slots, setSlots] = useState<string[] | null>(null);
   const [slotsVersion, setSlotsVersion] = useState(0);
   const [slot, setSlot] = useState('');
@@ -192,24 +196,35 @@ export default function Booking() {
         )}
 
         {tradesmanId && (
-          <Step number={3} title="Día y horario" description="Turnos de 30 minutos, en horario de Buenos Aires.">
-            <Field className="max-w-48">
-              <FieldLabel htmlFor="booking-date">Día</FieldLabel>
-              <Input
-                id="booking-date"
-                type="date"
-                min={today}
-                value={date}
-                onChange={(event) => chooseDate(event.target.value)}
-              />
-            </Field>
+          <Step
+            number={3}
+            title="Día y hora de inicio"
+            description="Los horarios de inicio van cada 30 minutos, en hora de Buenos Aires. El trabajo puede llevar más tiempo."
+          >
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="group" aria-label="Día">
+              {days.map((option) => (
+                <Button
+                  key={option}
+                  type="button"
+                  variant={date === option ? 'default' : 'outline'}
+                  aria-pressed={date === option}
+                  title={formatLongDay(`${option}T12:00:00-03:00`)}
+                  onClick={() => chooseDate(option)}
+                  className="shrink-0 capitalize"
+                >
+                  {option === today ? 'Hoy' : option === addDays(today, 1) ? 'Mañana' : formatDayChip(option)}
+                </Button>
+              ))}
+            </div>
             {!slots && <Skeleton className="mt-4 h-20" />}
-            {slots?.length === 0 && <p className="mt-4 text-muted-foreground">No hay turnos libres ese día.</p>}
+            {slots?.length === 0 && (
+              <p className="mt-4 text-muted-foreground">No hay horarios libres ese día. Probá con otro.</p>
+            )}
             {slots && slots.length > 0 && (
               <div
                 className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8"
                 role="group"
-                aria-label="Horario"
+                aria-label="Hora de inicio"
               >
                 {slots.map((option) => (
                   <Button

@@ -1,7 +1,7 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { toast } from 'sonner';
 import { ApiError, useApi } from '../api.ts';
-import { todayInPlatform } from '../dates.ts';
+import { addDays, firstBookableDay } from '../dates.ts';
 import { directClient, renderPage } from '../test-utils.tsx';
 import Booking from './Booking.tsx';
 
@@ -47,7 +47,7 @@ describe('Booking', () => {
 
     expect(await screen.findByText('navigated')).toBeInTheDocument();
     expect(api).toHaveBeenCalledWith('GET', '/tradesmen?trade=plumber');
-    expect(api).toHaveBeenCalledWith('GET', `/tradesmen/t1/availability?date=${todayInPlatform()}`);
+    expect(api).toHaveBeenCalledWith('GET', `/tradesmen/t1/availability?date=${firstBookableDay()}`);
     expect(api).toHaveBeenCalledWith('POST', '/tasks', {
       tradesmanId: 't1',
       propertyId: 'p1',
@@ -70,6 +70,21 @@ describe('Booking', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Ese turno ya no está disponible');
     expect(api.mock.calls.filter(([, path]) => String(path).includes('/availability'))).toHaveLength(2);
+  });
+
+  it('opens on the first day a slot can still start, and books on another day', async () => {
+    renderPage(<Booking />, { user: directClient });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Plomero' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Luis Pérez/ }));
+    const days = within(screen.getByRole('group', { name: 'Día' })).getAllByRole('button');
+    expect(days).toHaveLength(14);
+    expect(days[0]).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(days[2]);
+
+    await waitFor(() =>
+      expect(api).toHaveBeenCalledWith('GET', `/tradesmen/t1/availability?date=${addDays(firstBookableDay(), 2)}`),
+    );
   });
 
   it('says when nobody works in that trade', async () => {
