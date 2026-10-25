@@ -14,9 +14,17 @@ export interface Address {
   intersection: string;
 }
 
+export interface MunicipalitySummary {
+  id: string;
+  name: string;
+  provinceName: string;
+}
+
 export interface Home {
   id: string;
   address: Address;
+  // Null only on homes created before municipalities existed.
+  municipality: MunicipalitySummary | null;
 }
 
 export type User = {
@@ -34,7 +42,14 @@ export type User = {
     }
   | { role: 'directClient'; homes: Home[] }
   | { role: 'contractor'; company: { id: string; name: string } | null }
-  | { role: 'tradesman'; trades: Trade[]; contractorId: string | null }
+  | {
+      role: 'tradesman';
+      trades: Trade[];
+      contractorId: string | null;
+      municipalities: MunicipalitySummary[];
+      ratingAverage: number | null;
+      ratingCount: number;
+    }
 );
 
 export interface OnboardRequest {
@@ -42,8 +57,9 @@ export interface OnboardRequest {
   name: string;
   middleName?: string;
   lastName: string;
-  home?: Address;
+  home?: Address & { municipalityId: string };
   trades?: Trade[];
+  municipalityIds?: string[];
 }
 
 export const PROFILE_LABELS: Record<ProfileType, string> = {
@@ -65,6 +81,8 @@ export const fullName = ({ name, middleName, lastName }: Pick<User, 'name' | 'mi
 
 export const formatAddress = ({ street, number, intersection }: Address): string =>
   `${street} ${number} (${intersection})`;
+
+export const formatMunicipality = ({ name, provinceName }: MunicipalitySummary): string => `${name}, ${provinceName}`;
 
 export const TRADE_LABELS: Record<Trade, string> = {
   electrician: 'Electricista',

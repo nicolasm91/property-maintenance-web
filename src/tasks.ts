@@ -1,7 +1,7 @@
 // Mirrors the API's tasks and tradesmen (GET/POST /tasks, GET /tradesmen).
 import type { Address, Trade } from './user.ts';
 
-export type TaskStatus = 'unassigned' | 'assigned' | 'completed' | 'cancelled' | 'rejected';
+export type TaskStatus = 'unassigned' | 'assigned' | 'done' | 'completed' | 'cancelled' | 'rejected';
 
 export type TaskEventType =
   | 'created'
@@ -9,6 +9,7 @@ export type TaskEventType =
   | 'reassigned'
   | 'rejected'
   | 'rescheduled'
+  | 'done'
   | 'completed'
   | 'cancelled';
 
@@ -26,7 +27,10 @@ export interface Task {
   trade: Trade;
   status: TaskStatus;
   scheduledAt: string;
+  doneAt: string | null;
   completedAt: string | null;
+  // 1 to 5, given by the client when confirming the work.
+  rating: number | null;
   cancelledAt: string | null;
   property: { id: string; address: Address };
   createdBy: Person;
@@ -41,12 +45,20 @@ export interface TaskEvent {
   actor: Person;
   tradesmanId: string | null;
   reason: string | null;
+  rating: number | null;
   occurredAt: string;
 }
 
 export interface Tradesman extends Person {
   trades: Trade[];
   contractorId: string | null;
+  ratingAverage: number | null;
+  ratingCount: number;
+}
+
+export interface TradesmenPage {
+  items: Tradesman[];
+  nextCursor: string | null;
 }
 
 export interface BookRequest {
@@ -64,6 +76,7 @@ export const fullName = ({ name, middleName, lastName }: Person): string =>
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   unassigned: 'Sin asignar',
   assigned: 'Asignada',
+  done: 'Hecha',
   completed: 'Completada',
   cancelled: 'Cancelada',
   rejected: 'Rechazada',
@@ -75,6 +88,7 @@ export const EVENT_LABELS: Record<TaskEventType, string> = {
   reassigned: 'Reasignada',
   rejected: 'Rechazada',
   rescheduled: 'Reprogramada',
-  completed: 'Completada',
+  done: 'Marcada como hecha',
+  completed: 'Confirmada',
   cancelled: 'Cancelada',
 };

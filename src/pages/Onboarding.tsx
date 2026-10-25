@@ -1,5 +1,7 @@
 import { Briefcase, Building2, Hammer, House, type LucideIcon, Wrench } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
+import MunicipalitiesPicker from '../components/MunicipalitiesPicker.tsx';
+import MunicipalitySelect from '../components/MunicipalitySelect.tsx';
 import { Alert, AlertDescription } from '../components/ui/alert.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card.tsx';
@@ -8,6 +10,7 @@ import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '../compone
 import { Input } from '../components/ui/input.tsx';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group.tsx';
 import {
+  type MunicipalitySummary,
   type OnboardRequest,
   PROFILE_DESCRIPTIONS,
   PROFILE_LABELS,
@@ -33,6 +36,8 @@ const PROFILE_ICONS: Record<ProfileType, LucideIcon> = {
 export default function Onboarding({ onSubmit, onSignOut }: Props) {
   const [profileType, setProfileType] = useState<ProfileType>('directClient');
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [homeMunicipality, setHomeMunicipality] = useState<MunicipalitySummary | null>(null);
+  const [zones, setZones] = useState<MunicipalitySummary[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +55,14 @@ export default function Onboarding({ onSubmit, onSignOut }: Props) {
       setError('Elegí al menos un oficio.');
       return;
     }
+    if (profileType === 'tradesman' && zones.length === 0) {
+      setError('Elegí al menos una localidad donde trabajes.');
+      return;
+    }
+    if (profileType === 'directClient' && !homeMunicipality) {
+      setError('Elegí la localidad de tu casa.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -65,9 +78,11 @@ export default function Onboarding({ onSubmit, onSignOut }: Props) {
                 number: field('number'),
                 postalCode: field('postalCode'),
                 intersection: field('intersection'),
+                municipalityId: homeMunicipality!.id,
               }
             : undefined,
         trades: profileType === 'tradesman' ? trades : undefined,
+        municipalityIds: profileType === 'tradesman' ? zones.map((zone) => zone.id) : undefined,
       });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'No se pudo completar el registro.');
@@ -161,6 +176,7 @@ export default function Onboarding({ onSubmit, onSignOut }: Props) {
                         <Input id="intersection" name="intersection" required />
                       </Field>
                     </div>
+                    <MunicipalitySelect id="home" value={homeMunicipality} onChange={setHomeMunicipality} />
                   </FieldSet>
                 )}
 
@@ -181,6 +197,16 @@ export default function Onboarding({ onSubmit, onSignOut }: Props) {
                         </Field>
                       ))}
                     </div>
+                  </FieldSet>
+                )}
+
+                {profileType === 'tradesman' && (
+                  <FieldSet>
+                    <FieldLegend>¿Dónde trabajás?</FieldLegend>
+                    <p className="text-sm text-muted-foreground">
+                      Elegí las localidades donde podés garantizar el servicio. Te buscan por localidad.
+                    </p>
+                    <MunicipalitiesPicker value={zones} onChange={setZones} />
                   </FieldSet>
                 )}
 

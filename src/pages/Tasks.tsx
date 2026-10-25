@@ -89,8 +89,9 @@ export default function Tasks() {
     role === 'tradesman'
       ? groupByDay(tasks)
       : [
+          { title: 'Para confirmar', tasks: tasks.filter((task) => task.status === 'done') },
           { title: 'Próximas', tasks: tasks.filter(open) },
-          { title: 'Historial', tasks: tasks.filter((task) => !open(task)).reverse() },
+          { title: 'Historial', tasks: tasks.filter((task) => !open(task) && task.status !== 'done').reverse() },
         ];
 
   return (

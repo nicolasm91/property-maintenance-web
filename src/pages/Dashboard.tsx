@@ -7,9 +7,11 @@ import {
   CalendarPlus,
   CircleCheck,
   type LucideIcon,
+  MapPin,
+  Star,
   Wrench,
 } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link } from 'react-router';
 import StatusBadge from '../components/StatusBadge.tsx';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx';
@@ -48,21 +50,58 @@ function TasksOverview({ user }: { user: User & { role: 'directClient' | 'trades
   );
   const today = upcoming.filter((task) => sameDay(task.scheduledAt, now));
   const completed = (tasks ?? []).filter((task) => task.status === 'completed');
+  const toConfirm = (tasks ?? []).filter((task) => task.status === 'done');
 
-  const stats: { label: string; value: number; icon: LucideIcon }[] = isTradesman
+  const stats: { label: string; value: ReactNode; icon: LucideIcon }[] = isTradesman
     ? [
         { label: 'Hoy', value: today.length, icon: CalendarCheck },
         { label: 'Próximas', value: upcoming.length, icon: CalendarClock },
-        { label: 'Completadas', value: completed.length, icon: CircleCheck },
+        {
+          label: 'Calificación',
+          value: user.ratingCount > 0 ? user.ratingAverage!.toFixed(1) : '—',
+          icon: Star,
+        },
       ]
     : [
         { label: 'Próximas', value: upcoming.length, icon: CalendarClock },
-        { label: 'Completadas', value: completed.length, icon: CircleCheck },
-        { label: 'Reservas', value: tasks?.length ?? 0, icon: CalendarCheck },
+        { label: 'Para confirmar', value: toConfirm.length, icon: CircleCheck },
+        { label: 'Completadas', value: completed.length, icon: CalendarCheck },
       ];
 
   return (
     <>
+      {!isTradesman && toConfirm.length > 0 && (
+        <Alert>
+          <CircleCheck />
+          <AlertTitle>
+            {toConfirm.length === 1
+              ? 'Tenés un trabajo para confirmar'
+              : `Tenés ${toConfirm.length} trabajos para confirmar`}
+          </AlertTitle>
+          <AlertDescription>
+            El profesional lo marcó como hecho.{' '}
+            <Link to="/tareas" className="font-medium underline underline-offset-4">
+              Confirmalo y calificalo
+            </Link>
+            .
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isTradesman && user.municipalities.length === 0 && (
+        <Alert>
+          <MapPin />
+          <AlertTitle>Elegí dónde trabajás</AlertTitle>
+          <AlertDescription>
+            Sin localidades no aparecés en las búsquedas.{' '}
+            <Link to="/zonas" className="font-medium underline underline-offset-4">
+              Elegí tus zonas
+            </Link>
+            .
+          </AlertDescription>
+        </Alert>
+      )}
+
       {isTradesman && user.trades.length === 0 && (
         <Alert>
           <Wrench />

@@ -16,6 +16,7 @@ import Profile from './pages/Profile.tsx';
 import SignIn from './pages/SignIn.tsx';
 import Tasks from './pages/Tasks.tsx';
 import Trades from './pages/Trades.tsx';
+import Zones from './pages/Zones.tsx';
 import { SessionContext } from './session.tsx';
 import type { OnboardRequest, User } from './user.ts';
 
@@ -113,6 +114,7 @@ function OnboardedApp({ signOut }: { signOut: () => void }) {
               {user.role === 'directClient' && <Route path="tareas" element={<Tasks />} />}
               {user.role === 'tradesman' && <Route path="agenda" element={<Tasks />} />}
               {user.role === 'tradesman' && <Route path="oficios" element={<Trades />} />}
+              {user.role === 'tradesman' && <Route path="zonas" element={<Zones />} />}
               {user.role === 'propertyManager' && <Route path="administracion" element={<Organization />} />}
               {user.role === 'contractor' && <Route path="empresa" element={<Organization />} />}
               <Route path="*" element={<Navigate to="/" replace />} />

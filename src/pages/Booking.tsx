@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { ApiError, useApi } from '../api.ts';
 import PageHeader from '../components/PageHeader.tsx';
+import { RatingSummary } from '../components/Stars.tsx';
 import UserAvatar from '../components/UserAvatar.tsx';
 import { Alert, AlertDescription } from '../components/ui/alert.tsx';
 import { Badge } from '../components/ui/badge.tsx';
@@ -16,9 +17,9 @@ import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Textarea } from '../components/ui/textarea.tsx';
 import { addDays, firstBookableDay, formatDayChip, formatLongDay, formatTime, todayInPlatform } from '../dates.ts';
 import { useSession } from '../session.tsx';
-import { type BookRequest, fullName, type Task, type Tradesman } from '../tasks.ts';
+import { type BookRequest, fullName, type Task, type Tradesman, type TradesmenPage } from '../tasks.ts';
 import { cn } from '@/lib/utils';
-import { formatAddress, TRADE_LABELS, TRADES, type Trade } from '../user.ts';
+import { formatAddress, formatMunicipality, TRADE_LABELS, TRADES, type Trade } from '../user.ts';
 
 const TRADE_ICONS: Record<Trade, LucideIcon> = {
   electrician: Zap,
@@ -28,6 +29,9 @@ const TRADE_ICONS: Record<Trade, LucideIcon> = {
 };
 
 const message = (error: unknown) => (error instanceof Error ? error.message : 'Error inesperado');
+
+const searchPath = (trade: Trade, municipalityId: string, cursor?: string) =>
+  `/tradesmen?trade=${trade}&municipalityId=${municipalityId}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
 
 export default function Booking() {
   const { user } = useSession();
@@ -39,8 +43,13 @@ export default function Booking() {
     const first = firstBookableDay();
     return Array.from({ length: 14 }, (_, index) => addDays(first, index));
   });
+  const [homeId, setHomeId] = useState(homes[0]?.id ?? '');
+  const home = homes.find((each) => each.id === homeId);
+  const municipalityId = home?.municipality?.id;
   const [trade, setTrade] = useState<Trade | null>(null);
   const [tradesmen, setTradesmen] = useState<Tradesman[] | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [tradesmanId, setTradesmanId] = useState('');
   const [date, setDate] = useState(days[0]);
   const [slots, setSlots] = useState<string[] | null>(null);
@@ -51,17 +60,44 @@ export default function Booking() {
 
   // `ignore` drops responses to an older choice that arrive after a newer one.
   useEffect(() => {
-    if (!trade) {
+    if (!trade || !municipalityId) {
       return;
     }
     let ignore = false;
-    api<Tradesman[]>('GET', `/tradesmen?trade=${trade}`)
-      .then((found) => !ignore && setTradesmen(found))
+    api<TradesmenPage>('GET', searchPath(trade, municipalityId))
+      .then((page) => {
+        if (!ignore) {
+          setTradesmen(page.items);
+          setNextCursor(page.nextCursor);
+        }
+      })
       .catch((loadError: unknown) => !ignore && setError(message(loadError)));
     return () => {
       ignore = true;
     };
-  }, [api, trade]);
+  }, [api, trade, municipalityId]);
+
+  const loadMore = async () => {
+    if (!trade || !municipalityId || !nextCursor) {
+      return;
+    }
+    setLoadingMore(true);
+    try {
+      const page = await api<TradesmenPage>('GET', searchPath(trade, municipalityId, nextCursor));
+      setTradesmen((current) => [...(current ?? []), ...page.items]);
+      setNextCursor(page.nextCursor);
+    } catch (loadError) {
+      setError(message(loadError));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const chooseHome = (value: string) => {
+    setHomeId(value);
+    setTradesmen(null);
+    chooseTradesman('');
+  };
 
   useEffect(() => {
     if (!tradesmanId || !date) {
@@ -104,7 +140,7 @@ export default function Booking() {
     };
     const request: BookRequest = {
       tradesmanId,
-      propertyId: field('propertyId') || homes[0].id,
+      propertyId: homeId,
       trade: trade!,
       title: field('title'),
       description: field('description'),
@@ -132,6 +168,30 @@ export default function Booking() {
       <PageHeader title="Reservar un profesional" description="En cuatro pasos queda agendado el trabajo." />
       <div className="space-y-6">
         <Step number={1} title="¿Qué necesitás?" description="Elegí el oficio del trabajo.">
+          {homes.length > 1 && (
+            <Field className="mb-4">
+              <FieldLabel htmlFor="booking-home">Casa</FieldLabel>
+              <NativeSelect
+                id="booking-home"
+                className="w-full"
+                value={homeId}
+                onChange={(event) => chooseHome(event.target.value)}
+              >
+                {homes.map((each) => (
+                  <NativeSelectOption key={each.id} value={each.id}>
+                    {formatAddress(each.address)}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </Field>
+          )}
+          {home && !home.municipality && (
+            <Alert variant="destructive" className="mb-4" role="alert">
+              <AlertDescription>
+                Tu casa no tiene localidad cargada, así que no podemos buscar profesionales que trabajen ahí.
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4" role="group" aria-label="Oficio">
             {TRADES.map((option) => {
               const Icon = TRADE_ICONS[option];
@@ -154,15 +214,15 @@ export default function Booking() {
           </div>
         </Step>
 
-        {trade && (
+        {trade && home?.municipality && (
           <Step
             number={2}
             title="Elegí un profesional"
-            description="Profesionales independientes que trabajan en el oficio."
+            description={`Trabajan en ${formatMunicipality(home.municipality)}. Los mejor calificados, primero.`}
           >
             {!tradesmen && <Skeleton className="h-16" />}
             {tradesmen?.length === 0 && (
-              <p className="text-muted-foreground">No hay profesionales disponibles para ese oficio.</p>
+              <p className="text-muted-foreground">No hay profesionales de ese oficio que trabajen en tu localidad.</p>
             )}
             {tradesmen && tradesmen.length > 0 && (
               <div className="grid gap-3 md:grid-cols-2" role="group" aria-label="Profesional">
@@ -178,8 +238,11 @@ export default function Booking() {
                     )}
                   >
                     <UserAvatar name={tradesman.name} lastName={tradesman.lastName} className="size-10" />
-                    <span className="grid gap-1">
-                      <span className="font-medium">{fullName(tradesman)}</span>
+                    <span className="grid flex-1 gap-1">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="font-medium">{fullName(tradesman)}</span>
+                        <RatingSummary average={tradesman.ratingAverage} count={tradesman.ratingCount} />
+                      </span>
                       <span className="flex flex-wrap gap-1">
                         {tradesman.trades.map((each) => (
                           <Badge key={each} variant="secondary">
@@ -190,6 +253,13 @@ export default function Booking() {
                     </span>
                   </button>
                 ))}
+              </div>
+            )}
+            {nextCursor && (
+              <div className="mt-4 flex justify-center">
+                <Button variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>
+                  {loadingMore ? 'Cargando…' : 'Ver más profesionales'}
+                </Button>
               </div>
             )}
           </Step>
@@ -245,18 +315,6 @@ export default function Booking() {
         {slot && (
           <Step number={4} title="Contanos del trabajo" description="Lo ve el profesional antes de ir.">
             <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
-              {homes.length > 1 && (
-                <Field>
-                  <FieldLabel htmlFor="booking-home">Casa</FieldLabel>
-                  <NativeSelect id="booking-home" name="propertyId" className="w-full">
-                    {homes.map((home) => (
-                      <NativeSelectOption key={home.id} value={home.id}>
-                        {formatAddress(home.address)}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
-                </Field>
-              )}
               <Field>
                 <FieldLabel htmlFor="booking-title">Título</FieldLabel>
                 <Input id="booking-title" name="title" placeholder="Ej.: Pérdida en la canilla" required />

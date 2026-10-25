@@ -6,6 +6,7 @@ import {
   ClipboardList,
   House,
   type LucideIcon,
+  MapPin,
   Wrench,
 } from 'lucide-react';
 import type { ProfileType } from '../user.ts';
@@ -26,6 +27,7 @@ const byRole: Record<ProfileType, NavItem[]> = {
   tradesman: [
     { to: '/agenda', label: 'Agenda', icon: CalendarDays },
     { to: '/oficios', label: 'Mis oficios', icon: Wrench },
+    { to: '/zonas', label: 'Mis zonas', icon: MapPin },
   ],
   propertyManager: [{ to: '/administracion', label: 'Administración', icon: Building2 }],
   contractor: [{ to: '/empresa', label: 'Empresa', icon: Briefcase }],
